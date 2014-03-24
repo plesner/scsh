@@ -1,0 +1,21 @@
+; -*- mode: scheme -*-
+; Copyright 2010 Google Inc. All Rights Reserved.
+; Author: plesner@google.com (Christian Plesner Hansen)
+;
+; Functions for interacting with files.
+
+;; Creates a location which enters and exits a path.
+(define (@path name)
+  (let ((origin (cwd)))
+    (define (do-before)
+      (chdir name))
+    (define (run-thunk thunk)
+      (thunk))
+    (define (do-after)
+      (chdir origin))
+    (list do-before run-thunk do-after)))
+
+; Creates a path that is the given root followed by the given path segments,
+; separated appropriately by the path separator.
+(define (file-name-push root . parts)
+  (path-list->file-name (append (split-file-name root) parts)))

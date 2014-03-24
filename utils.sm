@@ -1,0 +1,49 @@
+; -*- mode: scheme -*-
+;
+; Various utilities.
+
+; Prints the given message then exits.
+(define (fail . args)
+  (apply println args)
+  (exit 1))
+
+; Prints the given values on a line.
+(define (println . args)
+  (for-each display args)
+  (newline))
+
+; Log if --verbose is #t.
+(define (glog . args)
+  (if --verbose
+      (let* ((now (format-date "[~X] " (date))))
+        (apply println (cons now args)))))
+
+; Returns true if the second argument is a prefix of the first.
+(define (starts-with str start)
+  (let ((start-length (string-length start)))
+    (if (< (string-length str) start-length)
+        #f
+        (string=? start (substring str 0 start-length)))))
+
+; For-loop syntax.
+(define-syntax for
+  (syntax-rules (in)
+    ((for (var in list) body ...)
+     (map (lambda (var) body ...) list))))
+
+; Implementation of 'within' syntax.
+(define (within* place body)
+  (let ((before (car place))
+        (run-thunk (cadr place))
+        (after (caddr place)))
+    (before)
+    (let ((value (run-thunk body)))
+      (after)
+      value)))
+
+; Performs the given operation within the specified location,
+; returning to the current location afterwards.
+(define-syntax within
+  (syntax-rules ()
+    ((within place body ...)
+     (within* place (lambda () (begin body ...))))))

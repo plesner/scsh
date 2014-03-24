@@ -1,0 +1,20 @@
+#!/bin/sh
+#
+# Usage: scsh <scsh script> <options> ...
+#
+# Loads the specified scsh script and all .sm files in the same
+# directory, then calls the 'main' function.
+
+SCSH_ROOT=~/Software/scsh
+SCRIPT=$1
+SCRIPT_ROOT=`dirname $SCRIPT`
+MAIN=main
+
+# List the modules in the same folder as the script being run, ignoring error
+# messages from ls (which it will issue for instance if there are no modules).
+# Massage the list into "-l <module>" for each module.
+LIBS=`ls $SCRIPT_ROOT/*.sm 2>/dev/null | sort | xargs -n1 -i@ echo -l @`
+
+# Run manually using scheme48 because the scsh runner is currently broken on
+# my ubuntu.
+exec scheme48 -I $SCSH_ROOT/scsh.image $SCSH_ROOT/scsh $LIBS -e $MAIN -s $*

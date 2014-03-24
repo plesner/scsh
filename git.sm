@@ -1,0 +1,59 @@
+; -*- mode: scheme -*-
+;
+; Helper functions for interacting with git.
+
+; Returns the list of branches in the current workspace.  The head of
+; the list will be the current branch, followed by the other
+; workspaces in the order in which they were returned from 'git branch'.
+(define (git-list-branches)
+  (define (process-branch str)
+    (cond
+     ((starts-with str "* ")
+      (list #t (substring str 2 (string-length str))))
+     ((starts-with str "  ")
+      (list #f (substring str 2 (string-length str))))
+     (else
+      '())))
+  (define (is-active e)
+    (car e))
+  (define (is-inactive e)
+    (not (is-active e)))
+  (glog "Listing branches")
+  (let* ((output (run/strings (git branch)))
+         (parts (map process-branch output)))
+    (if (eq? parts '())
+        (fail "Error running 'git branch' in '" (cwd) "'."))
+    (let ((current (cadr (find is-active parts)))
+          (others (map cadr (filter is-inactive parts))))
+      (cons current others))))
+
+; Returns the string name of the current git branch.
+(define (git-current-branch)
+  (car (git-list-branches)))
+
+; Returns true iff there are outstanding changes to files in the current
+; workspace. Untracked files are ignored.
+(define (git-has-outstanding-changes?)
+  (define (is-modified? line)
+    (not (starts-with line "??")))
+  (let* ((output (run/strings (git status -s)))
+	 (any-modified (any is-modified? output)))
+    any-modified))
+
+; Returns the name of the config that tracks whether a pull request exists for
+; the given branch.
+(define (git-pull-request-config-name branch)
+  (string-append "branch." branch ".pull-request"))
+
+; Returns #t if a pull request has been successfully created for the given
+; branch.
+(define (git-has-pull-request? branch)
+  (let* ((config (git-pull-request-config-name branch))
+	 (value (run/strings (git config --local --get ,config))))
+    (not (null? value))))
+
+; Creates a marker in the given git branch that causes git-has-pull-request?
+; to return #t in the future.
+(define (git-mark-has-pull-request branch)
+  (let ((config (git-pull-request-config-name branch)))
+    (run (git config --local --add ,config yes))))

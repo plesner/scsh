@@ -1,0 +1,35 @@
+; -*- mode: scheme -*-
+;
+; Utilities for working within ash-style workspaces.
+
+(define WORKSPACE-MARKER
+  ".ash")
+
+; Returns the path to the current workspace or #f it no workspace can
+; be found.
+(define (find-current-workspace)
+  (find-container WORKSPACE-MARKER))
+
+; Finds the container directory that contains a marker file with the given
+; name.
+(define (find-container marker-name)
+  (define (test-path back)
+    (if (null? back)
+        #f
+        (let* ((parts (reverse back))
+               (marker (reverse (cons marker-name back)))
+               (path (path-list->file-name marker)))
+          (if (file-exists? path)
+              (path-list->file-name parts)
+              (test-path (cdr back))))))
+  (let* ((here (split-file-name (cwd)))
+         (back (reverse here)))
+    (test-path back)))
+
+; Returns the location of the current workspace of #f if no workspace
+; can be found.
+(define (@current-workspace)
+  (let ((workspace (find-current-workspace)))
+    (if workspace
+        (@path workspace)
+        #f)))

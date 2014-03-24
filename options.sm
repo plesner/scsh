@@ -1,0 +1,54 @@
+; -*- mode: scheme -*-
+;
+; Command-line option parser.
+
+(define (option-parser* options)
+  ; Returns a list whose car is the first n elements of the given list
+  ; and whose cdr is the remaining elements, after the first n.
+  (define (split-list list n)
+    (cond
+      ((= 0 n)
+       (cons '() list))
+      ((and (null? list) (< 0 n))
+       #f)
+      (else
+       (let ((tail (split-list (cdr list) (- n 1))))
+         (if tail
+             (cons (cons (car list) (car tail))
+                   (cdr tail))
+             tail)))))
+  ; Process the given list of arguments and return a list of elements
+  ; that were not recognized as options.
+  (define (process args)
+    (if (null? args)
+        '()
+        (let* ((arg (car args))
+               (match (assq (string->symbol arg) options)))
+          (if match
+              (let* ((arg-count (cadr match))
+                     (arg-fun (caddr match))
+                     (split (split-list (cdr args) arg-count)))
+                (if split
+                    (let ((param-args (car split))
+                          (rest (cdr split)))
+                      (apply arg-fun param-args)
+                      (process rest))))
+              (cons arg (process (cdr args)))))))
+  process)
+
+(define-syntax *option-parse-transform*
+  (syntax-rules ()
+    ((*option-parse-transform*)
+     '())
+    ((*option-parse-transform* ((name arg) body ...) . rest)
+     (cons `(name 1 ,(lambda (arg) body ...))
+           (*option-parse-transform* . rest)))
+    ((*option-parse-transform* (name body ...) . rest)
+     (cons `(name 0 ,(lambda () body ...))
+           (*option-parse-transform* . rest)))))
+
+; Define a function that processes command-line arguments.
+(define-syntax option-parser
+  (syntax-rules ()
+    ((option-parser . body)
+     (option-parser* (*option-parse-transform* . body)))))
