@@ -30,6 +30,7 @@
     ('commit    (within-workspace run-commit args))
     ('uncommit  (within-workspace run-uncommit args))
     ('export    (within-workspace run-export args))
+    ('submit    (within-workspace run-submit args))
     (else   (exit-with-usage))))
 
 ; Executes a 'start' command.
@@ -82,6 +83,19 @@
 	; ...if successful create a marker on this branch.
         (git-mark-has-pull-request branch))))
 
+; Runs a 'submit' command.
+(define (run-submit)
+  (define branch (git-current-branch))
+  (let ((master (@git-branch "master")))
+    (within master
+      (&&
+        ; Merge the branch into local master.
+        (git merge ,branch)
+	; Push the local master to the origin.
+	(git push origin master)
+	; Delete the pull request branch.
+	(git push export --delete ,branch)))))
+
 ; Executes the given thunk with the given arguments within the current
 ; workspace.
 (define (within-workspace thunk args)
@@ -102,6 +116,7 @@
       "  * commit     Commit outstanding changes locally."
       "  * uncommmit  Roll back the last commit."
       "  * export     Push the current changes to a pull-request."
+      "  * submit     Push the current changes to the origin."
       ""
       "and OPTIONS include the following:"
       "  --verbose            Print the actions performed"

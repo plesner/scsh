@@ -57,3 +57,14 @@
 (define (git-mark-has-pull-request branch)
   (let ((config (git-pull-request-config-name branch)))
     (run (git config --local --add ,config yes))))
+
+; Creates a location that represents the git branch with the given name.
+(define (@git-branch target)
+  (let ((origin (git-current-branch)))
+    (define (do-before)
+      (run (git checkout ,target)))
+    (define (run-thunk thunk)
+      (thunk))
+    (define (do-after)
+      (run (git checkout ,origin)))
+    (list do-before run-thunk do-after)))
