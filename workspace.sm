@@ -13,6 +13,10 @@
 ; Finds the container directory that contains a marker file with the given
 ; name.
 (define (find-container marker-name)
+  (define (resolve-symlink marker-path root-path)
+    (if (file-symlink? marker-path)
+        (read-symlink marker-path)
+        root-path))
   (define (test-path back)
     (if (null? back)
         #f
@@ -20,7 +24,7 @@
                (marker (reverse (cons marker-name back)))
                (path (path-list->file-name marker)))
           (if (file-exists? path)
-              (path-list->file-name parts)
+              (resolve-symlink path (path-list->file-name parts))
               (test-path (cdr back))))))
   (let* ((here (split-file-name (cwd)))
          (back (reverse here)))

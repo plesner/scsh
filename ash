@@ -2,8 +2,9 @@
 ; -*- mode: scheme -*-
 !#
 
-(define --verbose #f)
-(define --help    #f)
+(define --verbose   #f)
+(define --help      #f)
+(define --porcelain #f)
 
 ; Main entry-point. Parses arguments and forwards to the command dispatcher.
 (define (main raw-args)
@@ -19,6 +20,8 @@
   (option-parser
     (--verbose
       (set! --verbose (not --verbose)))
+    (--porcelain
+      (set! --porcelain (not --porcelain)))
     (--help
       (set! --help (not --help)))))
 
@@ -31,6 +34,8 @@
     ('uncommit  (within-workspace run-uncommit args))
     ('export    (within-workspace run-export args))
     ('submit    (within-workspace run-submit args))
+    ('status    (within-workspace-lenient run-status args))
+    ('branch    (within-workspace-lenient run-branch args))
     (else   (exit-with-usage))))
 
 ; Executes a 'start' command.
@@ -96,14 +101,31 @@
 	; Delete the pull request branch.
 	(git push export --delete ,branch)))))
 
+; Runs a 'status' command.
+(define (run-status)
+  (run (git status ,@(if --porcelain '(--porcelain) '()))))
+
+; Runs a 'branch' command.
+(define (run-branch)
+  (run (git branch)))
+
 ; Executes the given thunk with the given arguments within the current
 ; workspace.
 (define (within-workspace thunk args)
   (let ((workspace (@current-workspace)))
     (if workspace
-	(within workspace
-	  (apply thunk args))
-	(fail "Couldn't find current workspace"))))
+        (within workspace
+          (apply thunk args))
+        (fail "Couldn't find current workspace"))))
+
+; Executes the given thunk with the given arguments within the current
+; workspace or, if no workspace could be found, the current directory.
+(define (within-workspace-lenient thunk args)
+  (let ((workspace (@current-workspace)))
+    (if workspace
+        (within worksapce
+          (apply thunk args))
+	(apply thunk args))))
 
 ; Prints all options understood by this tool and exits with an error.
 (define (exit-with-usage)
@@ -117,6 +139,8 @@
       "  * uncommmit  Roll back the last commit."
       "  * export     Push the current changes to a pull-request."
       "  * submit     Push the current changes to the origin."
+      "  * status     Print git status."
+      "  * branch     Print git branch."
       ""
       "and OPTIONS include the following:"
       "  --verbose            Print the actions performed"
