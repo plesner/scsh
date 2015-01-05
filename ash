@@ -123,7 +123,7 @@
 (define (within-workspace-lenient thunk args)
   (let ((workspace (@current-workspace)))
     (if workspace
-        (within worksapce
+        (within workspace
           (apply thunk args))
 	(apply thunk args))))
 
