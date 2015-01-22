@@ -36,6 +36,8 @@
     ('submit    (within-workspace run-submit args))
     ('status    (within-workspace-lenient run-status args))
     ('branch    (within-workspace-lenient run-branch args))
+    ('diff      (within-workspace-lenient run-diff args))
+    ('git       (within-workspace-lenient run-git args))
     (else   (exit-with-usage))))
 
 ; Executes a 'start' command.
@@ -101,13 +103,17 @@
 	; Delete the pull request branch.
 	(git push export --delete ,branch)))))
 
-; Runs a 'status' command.
 (define (run-status)
   (run (git status ,@(if --porcelain '(--porcelain) '()))))
 
-; Runs a 'branch' command.
 (define (run-branch)
   (run (git branch)))
+
+(define (run-diff)
+  (run (git diff)))
+
+(define (run-git . args)
+  (run (git ,@args)))
 
 ; Executes the given thunk with the given arguments within the current
 ; workspace.
@@ -141,6 +147,8 @@
       "  * submit     Push the current changes to the origin."
       "  * status     Print git status."
       "  * branch     Print git branch."
+      "  * diff       Print git diff."
+      "  * git        Go to the workspace and run the given command."
       ""
       "and OPTIONS include the following:"
       "  --verbose            Print the actions performed"
