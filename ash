@@ -5,6 +5,7 @@
 (define --verbose   #f)
 (define --help      #f)
 (define --porcelain #f)
+(define --force     #f)
 
 ; Main entry-point. Parses arguments and forwards to the command dispatcher.
 (define (main raw-args)
@@ -22,6 +23,8 @@
       (set! --verbose (not --verbose)))
     (--porcelain
       (set! --porcelain (not --porcelain)))
+    (--force
+      (set! --force (not --force)))
     (--help
       (set! --help (not --help)))))
 
@@ -34,11 +37,15 @@
     ('uncommit  (within-workspace run-uncommit args))
     ('export    (within-workspace run-export args))
     ('submit    (within-workspace run-submit args))
+    ('rename    (within-workspace-lenient run-rename args))
     ('status    (within-workspace-lenient run-status args))
     ('branch    (within-workspace-lenient run-branch args))
     ('diff      (within-workspace-lenient run-diff args))
     ('git       (within-workspace-lenient run-git args))
-    (else   (exit-with-usage))))
+    ('squash    (within-workspace run-squash args))
+    ('revert    (within-workspace run-revert args))
+    ('pullall   (within-workspace run-pullall args))
+    (else       (exit-with-usage))))
 
 ; Executes a 'start' command.
 (define (run-start new-branch)
@@ -81,7 +88,7 @@
   (run-commit)
   ; Push to the remote branch, possibly creating it.
   (if (and
-        (= 0 (run (git push -u export ,branch)))
+        (= 0 (run (git push -u export ,branch ,@(if --force '(-f) '()))))
 	(not (git-has-pull-request? branch)))
       ; There is no pull-request so make one.
       (and
@@ -93,6 +100,11 @@
 ; Runs a 'submit' command.
 (define (run-submit)
   (define branch (git-current-branch))
+  (if (is-master? branch)
+      (fail "Don't submit master"))
+  ; Commit outstanding changes. This shouldn't really happen, they should have
+  ; been exported earlier, but there are exceptions.
+  (run-commit)
   (let ((master (@git-branch "master")))
     (within master
       (&&
@@ -102,6 +114,19 @@
 	(git push origin master)
 	; Delete the pull request branch.
 	(git push export --delete ,branch)))))
+
+(define (run-rename new-name)
+  (run (git branch -m ,new-name)))
+
+(define (run-pullall)
+  (&&
+    ; Update the current branch to the current version.
+    (git pull origin master)
+    ; Move all the submodules to the master branch since otherwise
+    ; they'll land on a detached branch.
+    (git submodule foreach --recursive git checkout master)
+    ; Update the submodules
+    (git submodule update --recursive)))
 
 (define (run-status)
   (run (git status ,@(if --porcelain '(--porcelain) '()))))
@@ -114,6 +139,12 @@
 
 (define (run-git . args)
   (run (git ,@args)))
+
+(define (run-squash count)
+  (run (git rebase --interactive ,(string-append "HEAD~" count))))
+
+(define (run-revert)
+  (run (git reset --hard HEAD)))
 
 ; Executes the given thunk with the given arguments within the current
 ; workspace.
@@ -145,10 +176,14 @@
       "  * uncommmit  Roll back the last commit."
       "  * export     Push the current changes to a pull-request."
       "  * submit     Push the current changes to the origin."
+      "  * rename     Rename the current branch."
       "  * status     Print git status."
       "  * branch     Print git branch."
       "  * diff       Print git diff."
       "  * git        Go to the workspace and run the given command."
+      "  * squash     Interactively squash the given number of commits."
+      "  * revert     Revert the current branch to HEAD."
+      "  * pullall    Pull this workspace and its deps recursively."
       ""
       "and OPTIONS include the following:"
       "  --verbose            Print the actions performed"
